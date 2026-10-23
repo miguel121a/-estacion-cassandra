@@ -26,6 +26,14 @@
       <p class="nota">El puerto 3000 debe estar en Public.</p>
     </section>
   </div>
+  <section class="tarjeta">
+    <h2>Resumen de los ultimos dias</h2>
+    <p class="nota">Tabla <b>resumen_por_dia</b>: minima, maxima y promedio de cada sensor por dia. Se llena con <b>node resumen.js</b>.</p>
+    <div class="tabla"><table>
+      <thead><tr><th>Dia</th><th>Sensor</th><th>Minima</th><th>Maxima</th><th>Promedio</th><th>Lecturas</th></tr></thead>
+      <tbody id="resumen"></tbody>
+    </table></div>
+  </section>
   <div id="cql"></div>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -80,6 +88,28 @@ try {
   document.getElementById("qr").innerHTML = q.createSvgTag(5, 2);
 } catch (e) { /* sin internet no se dibuja el QR */ }
 
+// Reto 1: resumen diario (se carga una sola vez al abrir el tablero)
+async function cargarResumen() {
+  const tb = document.getElementById("resumen");
+  try {
+    const r = await api("/resumen?dias=7");            // GET /api/resumen?dias=7
+    r.filas.sort((a, b) => b.dia.localeCompare(a.dia) || a.sensor.localeCompare(b.sensor));
+    tb.textContent = "";
+    for (const x of r.filas) {
+      const tr = el("tr");
+      tr.append(el("td", null, x.dia), el("td", null, x.nombre),
+        el("td", null, num(x.minima) + " °C"), el("td", null, num(x.maxima) + " °C"),
+        el("td", null, num(x.promedio) + " °C"), el("td", null, String(x.lecturas)));
+      tb.append(tr);
+    }
+    if (!r.filas.length) tb.innerHTML = '<tr><td colspan="6" class="nota">Sin datos: ejecuta node resumen.js</td></tr>';
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="6" class="nota"></td></tr>';
+    tb.querySelector("td").textContent = e.message;
+  }
+}
+
+cargarResumen();
 cargar();
 setInterval(cargar, 2000);
 </script>

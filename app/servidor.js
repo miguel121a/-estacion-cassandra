@@ -63,6 +63,32 @@ async function alertas(q) {
   return { dia, alertas: r.rows.map(x => ({ hora: x.hora, sensor: x.sensor, temperatura: x.temperatura, mensaje: x.mensaje })), cql };
 }
 
+// GET /api/sensores/uthh-03/alertas?dias=7 : alertas de UN sensor en los ultimos dias (Reto 2)
+async function alertasSensor(id, q) {
+  const cql = [];
+  const dias = Math.min(Number(q.get("dias")) || 7, 60);
+  const desde = diaLocal(new Date(Date.now() - (dias - 1) * 86400000));
+  const r = await ejecutar(cliente,
+    `SELECT dia, hora, temperatura, mensaje FROM ${KS}.alertas_por_sensor WHERE sensor = ? AND dia >= ? LIMIT 500`,
+    [id, LocalDate.fromString(desde)], cql);
+  return { sensor: id, desde, total: r.rows.length,
+    alertas: r.rows.map(x => ({ dia: x.dia.toString(), hora: x.hora, temperatura: x.temperatura, mensaje: x.mensaje })), cql };
+}
+// GET /api/resumen?dias=7 : minima, maxima y promedio por dia de cada sensor (Reto 1)
+async function resumen(q) {
+  const cql = [];
+  const dias = Math.min(Number(q.get("dias")) || 7, 31);
+  const catalogo = Object.values(await leerSensores(cliente, cql)).sort((a, b) => a.id.localeCompare(b.id));
+  const filas = [];
+  for (const s of catalogo) {
+    const r = await ejecutar(cliente,
+      `SELECT dia, minima, maxima, promedio, lecturas FROM ${KS}.resumen_por_dia WHERE sensor = ? LIMIT ?`,
+      [s.id, dias], cql);
+    for (const x of r.rows) filas.push({ sensor: s.id, nombre: s.nombre, dia: x.dia.toString(),
+      minima: x.minima, maxima: x.maxima, promedio: x.promedio, lecturas: x.lecturas });
+  }
+  return { filas, cql };
+}
 // POST /api/lecturas  {"sensor":"uthh-01","temperatura":27.5,"humedad":70}
 async function registrar(datos) {
   const cql = [];
@@ -101,6 +127,8 @@ http.createServer(async (req, res) => {
     else if (req.method === "GET" && ruta === "/api/sensores") respuesta = await sensores();
     else if (req.method === "GET" && (m = ruta.match(/^\/api\/sensores\/([\w-]+)\/lecturas$/))) respuesta = await lecturas(m[1], url.searchParams);
     else if (req.method === "GET" && ruta === "/api/alertas") respuesta = await alertas(url.searchParams);
+    else if (req.method === "GET" && (m = ruta.match(/^\/api\/sensores\/([\w-]+)\/alertas$/))) respuesta = await alertasSensor(m[1], url.searchParams);
+    else if (req.method === "GET" && ruta === "/api/resumen") respuesta = await resumen(url.searchParams);
     else if (ruta.startsWith("/api/almacen/")) respuesta = await almacen.ruta(req, ruta, url.searchParams);
     else if (req.method === "POST" && ruta === "/api/lecturas") {
       let cuerpo = "";

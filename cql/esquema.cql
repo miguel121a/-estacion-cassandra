@@ -58,3 +58,24 @@ CREATE TABLE IF NOT EXISTS conteo_por_dia (
 INSERT INTO sensores (id, nombre, ubicacion, tipo, temp_max) VALUES ('uthh-01', 'Biblioteca', 'Edificio A, planta alta', 'interior', 30);
 INSERT INTO sensores (id, nombre, ubicacion, tipo, temp_max) VALUES ('uthh-02', 'Cafeteria', 'Edificio C', 'interior', 32);
 INSERT INTO sensores (id, nombre, ubicacion, tipo, temp_max) VALUES ('uthh-03', 'Explanada', 'Patio central', 'exterior', 35);
+
+-- Reto 2. Pregunta: "¿que alertas tuvo UN sensor en los ultimos dias?"
+CREATE TABLE IF NOT EXISTS alertas_por_sensor (
+  sensor text,
+  dia date,
+  hora timestamp,
+  temperatura float,
+  mensaje text,
+  PRIMARY KEY ((sensor), dia, hora)
+) WITH CLUSTERING ORDER BY (dia DESC, hora DESC);
+
+-- Reto 1. Pregunta: "¿cual fue la minima, maxima y promedio de UN sensor por dia?"
+CREATE TABLE IF NOT EXISTS resumen_por_dia (
+  sensor text,
+  dia date,
+  minima float,
+  maxima float,
+  promedio float,
+  lecturas int,
+  PRIMARY KEY ((sensor), dia)
+) WITH CLUSTERING ORDER BY (dia DESC);

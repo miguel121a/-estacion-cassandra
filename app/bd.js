@@ -9,10 +9,16 @@ const ZONA = "America/Mexico_City";    // zona horaria para decidir el "dia" de 
 
 // Cliente: se conecta al nodo de Cassandra que corre en Docker, puerto 9042
 function crearCliente() {
-  return new cassandra.Client({
+  const opciones = {
     contactPoints: ["127.0.0.1"],      // direccion del nodo
     localDataCenter: "datacenter1",    // centro de datos (el nombre por defecto)
-  });
+  };
+  // Reto 3: si hay usuario en las variables de entorno, se conecta con ese rol
+  if (process.env.CASSANDRA_USUARIO) {
+    opciones.authProvider = new cassandra.auth.PlainTextAuthProvider(
+      process.env.CASSANDRA_USUARIO, process.env.CASSANDRA_CLAVE || "");
+  }
+  return new cassandra.Client(opciones);
 }
 
 // Dia local en formato AAAA-MM-DD (en Mexico, no en UTC)
@@ -65,6 +71,10 @@ async function guardarLectura(cliente, sensor, lectura, bitacora, historico = fa
   if (alerta) lote.push({
     query: `INSERT INTO ${KS}.alertas_por_dia (dia, hora, sensor, temperatura, mensaje) VALUES (?, ?, ?, ?, ?)`,
     params: [fecha, hora, sensor.id, temperatura, sensor.nombre + " supera " + sensor.temp_max + " °C"],
+  });
+  if (alerta) lote.push({            // Reto 2: la misma alerta, agrupada por sensor
+    query: `INSERT INTO ${KS}.alertas_por_sensor (sensor, dia, hora, temperatura, mensaje) VALUES (?, ?, ?, ?, ?)`,
+    params: [sensor.id, fecha, hora, temperatura, sensor.nombre + " supera " + sensor.temp_max + " °C"],
   });
 
   if (bitacora) bitacora.push("BEGIN BATCH", ...lote.map(l => "  " + mostrar(l.query, l.params) + ";"), "APPLY BATCH;");
